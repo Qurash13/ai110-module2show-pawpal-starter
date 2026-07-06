@@ -32,6 +32,8 @@ new_name = st.text_input("Owner name", value=owner.name)
 if new_name and new_name != owner.name:
     owner.name = new_name
 
+# Because the Owner persists in session_state, there's no natural way to clear
+# its pets/tasks during a session — this replaces it with a fresh Owner.
 if st.button("Reset everything"):
     st.session_state.owner = Owner(new_name or "Jordan")
     st.rerun()
