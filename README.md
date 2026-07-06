@@ -69,16 +69,18 @@ All tasks sorted by time
   09:00  Feed Mochi
   16:00  Play session
   17:00  Evening walk
+  17:00  Feed Mochi
     —    Litter box
 
 Filtering
 ---------
   Biscuit's tasks: ['Evening walk', 'Morning walk', 'Breakfast']
-  Incomplete tasks: 6 of 6
+  Incomplete tasks: 7 of 7
 
 Conflict detection
 ------------------
   ⚠️ Conflict at 09:00: Breakfast, Feed Mochi
+  ⚠️ Conflict at 17:00: Evening walk, Feed Mochi
 
 Recurring tasks
 ---------------
@@ -92,10 +94,13 @@ Today's Schedule — Jordan's pets (Monday, July 06)
 Daily plan:
   08:00 — Breakfast (10 min) [priority: high]
   08:10 — Feed Mochi (10 min) [priority: high]
-  08:20 — Evening walk (30 min) [priority: medium]
-  08:50 — Litter box (15 min) [priority: medium]
-  09:05 — Play session (20 min) [priority: low]
-Total: 85 min scheduled across 5 task(s).
+  08:20 — Feed Mochi (10 min) [priority: high]
+  08:30 — Evening walk (30 min) [priority: medium]
+  09:00 — Litter box (15 min) [priority: medium]
+Total: 75 min scheduled across 5 task(s).
+
+Skipped (not enough time):
+  - Play session (20 min) [priority: low]
 ```
 
 ## 🧪 Testing PawPal+
@@ -185,16 +190,18 @@ All tasks sorted by time
   09:00  Feed Mochi
   16:00  Play session
   17:00  Evening walk
+  17:00  Feed Mochi
     —    Litter box
 
 Filtering
 ---------
   Biscuit's tasks: ['Evening walk', 'Morning walk', 'Breakfast']
-  Incomplete tasks: 6 of 6
+  Incomplete tasks: 7 of 7
 
 Conflict detection
 ------------------
   ⚠️ Conflict at 09:00: Breakfast, Feed Mochi
+  ⚠️ Conflict at 17:00: Evening walk, Feed Mochi
 
 Recurring tasks
 ---------------
@@ -208,10 +215,13 @@ Today's Schedule — Jordan's pets (Monday, July 06)
 Daily plan:
   08:00 — Breakfast (10 min) [priority: high]
   08:10 — Feed Mochi (10 min) [priority: high]
-  08:20 — Evening walk (30 min) [priority: medium]
-  08:50 — Litter box (15 min) [priority: medium]
-  09:05 — Play session (20 min) [priority: low]
-Total: 85 min scheduled across 5 task(s).
+  08:20 — Feed Mochi (10 min) [priority: high]
+  08:30 — Evening walk (30 min) [priority: medium]
+  09:00 — Litter box (15 min) [priority: medium]
+Total: 75 min scheduled across 5 task(s).
+
+Skipped (not enough time):
+  - Play session (20 min) [priority: low]
 ```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

@@ -22,8 +22,10 @@ def build_demo_owner() -> Owner:
     owner.add_task(biscuit, Task("Breakfast", "feeding", 10, Priority.HIGH, preferred_time=time(9, 0)))
 
     mochi = Pet("Mochi", species="cat", breed="Tabby", age_years=5)
-    # Note: same 09:00 preferred time as Biscuit's breakfast -> a conflict.
-    owner.add_task(mochi, Task("Feed Mochi", "feeding", 10, Priority.HIGH, preferred_time=time(9, 0)))
+    # Multi-time feeding: the same task added once at two times of day. Note the
+    # 09:00 feeding also clashes with Biscuit's breakfast -> a conflict.
+    for feed_time in (time(9, 0), time(17, 0)):
+        owner.add_task(mochi, Task("Feed Mochi", "feeding", 10, Priority.HIGH, preferred_time=feed_time))
     owner.add_task(mochi, Task("Litter box", "cleaning", 15, Priority.MEDIUM))
     owner.add_task(mochi, Task("Play session", "enrichment", 20, Priority.LOW, preferred_time=time(16, 0)))
 
@@ -39,7 +41,8 @@ def main() -> None:
     today = date.today()
     scheduler = Scheduler(available_minutes=90, day_start=time(8, 0))
 
-    # 1. Sorting by time of day (tasks were added out of order).
+    # 1. Sorting by time of day (tasks were added out of order). Note that
+    #    "Feed Mochi" appears twice — it's a multi-time task (09:00 and 17:00).
     hr("All tasks sorted by time")
     for t in scheduler.sort_by_time(owner.all_tasks()):
         when = t.preferred_time.strftime("%H:%M") if t.preferred_time else "  —  "
