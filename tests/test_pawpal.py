@@ -1,13 +1,11 @@
 """Tests for the PawPal+ core logic layer.
 
-Focused on the behaviors that matter most: recurrence filtering, priority
-ordering, time-budget enforcement, conflict detection, and the owner/pet data
-model.
+Covers the behaviors that matter most: the required completion/task-count
+checks, plus recurrence filtering, priority ordering, time-budget enforcement,
+conflict detection, and explanations.
 """
 
 from datetime import date, time
-
-import pytest
 
 from pawpal_system import (
     DailyPlan,
@@ -23,6 +21,23 @@ from pawpal_system import (
 # A Wednesday and a Monday, for weekly-recurrence tests.
 WEDNESDAY = date(2026, 7, 8)
 MONDAY = date(2026, 7, 6)
+
+
+# --- Required Phase 2 tests ------------------------------------------------
+
+
+def test_mark_complete_changes_status():
+    task = Task("Walk")
+    assert task.completed is False
+    task.mark_complete()
+    assert task.completed is True
+
+
+def test_adding_task_increases_pet_task_count():
+    pet = Pet("Biscuit")
+    assert len(pet.tasks) == 0
+    pet.add_task(Task("Walk"))
+    assert len(pet.tasks) == 1
 
 
 # --- Data model ------------------------------------------------------------
@@ -140,9 +155,25 @@ def test_plan_filters_tasks_not_due():
     assert plan.skipped == []  # filtered out entirely, not "skipped for time"
 
 
+def test_plan_excludes_completed_tasks():
+    sched = Scheduler()
+    done = Task("Walk", duration_minutes=15)
+    done.mark_complete()
+    plan = sched.generate_plan([done], WEDNESDAY)
+    assert plan.items == [] and plan.skipped == []
+
+
 def test_empty_task_list_yields_empty_plan():
     plan = Scheduler().generate_plan([], WEDNESDAY)
     assert plan.items == [] and plan.skipped == [] and plan.total_minutes == 0
+
+
+def test_plan_for_owner_gathers_all_pets():
+    owner = Owner("Jordan")
+    owner.add_task(Pet("Biscuit"), Task("Walk", duration_minutes=15))
+    owner.add_task(Pet("Mochi"), Task("Feed", duration_minutes=10))
+    plan = Scheduler().plan_for_owner(owner, WEDNESDAY)
+    assert len(plan.items) == 2
 
 
 # --- Conflict detection ----------------------------------------------------

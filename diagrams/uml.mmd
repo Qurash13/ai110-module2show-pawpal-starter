@@ -26,6 +26,9 @@ classDiagram
         +Priority priority
         +Recurrence recurrence
         +Optional~time~ preferred_time
+        +Optional~int~ day_of_week
+        +bool completed
+        +mark_complete() None
         +is_due_on(day) bool
     }
 
@@ -35,6 +38,7 @@ classDiagram
         +sort_tasks(tasks) list~Task~
         +detect_conflicts(plan) list~ScheduledItem~
         +generate_plan(tasks, day) DailyPlan
+        +plan_for_owner(owner, day) DailyPlan
         +explain_plan(plan) str
     }
 
@@ -67,6 +71,7 @@ classDiagram
     Owner "1" --> "*" Pet : owns
     Pet "1" --> "*" Task : has
     Scheduler ..> Task : schedules
+    Scheduler ..> Owner : reads tasks from
     Scheduler ..> DailyPlan : produces
     DailyPlan "1" --> "*" ScheduledItem : contains
     ScheduledItem --> Task : wraps

@@ -48,6 +48,11 @@ class Task:
     preferred_time: Optional[time] = None
     # Only used for WEEKLY tasks: 0 = Monday ... 6 = Sunday. Defaults to Monday.
     day_of_week: Optional[int] = None
+    completed: bool = False
+
+    def mark_complete(self) -> None:
+        """Mark this task as done so it drops out of future plans."""
+        self.completed = True
 
     def is_due_on(self, day: date) -> bool:
         """Return True if this task should appear in the plan for ``day``.
@@ -148,9 +153,9 @@ class Scheduler:
         """Build a daily plan for ``day`` that fits within ``available_minutes``.
 
         Recurring tasks are filtered via ``Task.is_due_on(day)`` before sorting
-        and placement.
+        and placement; already-completed tasks are excluded.
         """
-        due = [t for t in tasks if t.is_due_on(day)]
+        due = [t for t in tasks if t.is_due_on(day) and not t.completed]
         ordered = self.sort_tasks(due)
 
         plan = DailyPlan()
@@ -166,6 +171,10 @@ class Scheduler:
             else:
                 plan.skipped.append(task)
         return plan
+
+    def plan_for_owner(self, owner: Owner, day: date) -> DailyPlan:
+        """Convenience: gather every task across the owner's pets and plan ``day``."""
+        return self.generate_plan(owner.all_tasks(), day)
 
     def detect_conflicts(self, plan: DailyPlan) -> list[ScheduledItem]:
         """Return scheduled items whose time slots overlap another item.
