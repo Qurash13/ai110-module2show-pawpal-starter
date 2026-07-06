@@ -55,13 +55,23 @@ A second, related tradeoff is in conflict detection. `Scheduler.find_time_confli
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+I used an AI coding assistant across every phase, but for different kinds of work:
+
+- **Design brainstorming** — early on, to turn the scenario into a set of classes and a Mermaid UML diagram, and to sanity-check relationships ("does an Owner *have* Pets, or should the Scheduler own them?").
+- **Scaffolding** — generating the dataclass skeletons and empty method stubs from the UML so I had a consistent starting structure.
+- **Implementation** — fleshing out the scheduling algorithms (sorting keys, the greedy time-budget loop, `timedelta`-based recurrence) with the assistant's editing/agent mode.
+- **Testing** — drafting the pytest suite, including edge cases I might not have thought of (a pet with no tasks, two tasks at the same time).
+- **Documentation** — drafting docstrings, the README Features/Smarter Scheduling tables, and this reflection.
+
+The most helpful prompts were **specific and grounded in my files** — e.g., "based on my skeletons, how should the Scheduler retrieve tasks from the Owner's pets?" and "what edge cases matter for a scheduler with sorting and recurrence?" Open-ended prompts ("write my scheduler") produced generic code; scoped prompts that referenced my actual class names produced code that fit the design.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+The clearest example of *not* accepting a suggestion as-is came with recurring tasks. The assignment's model assumed each task carried an explicit due date, but my design already used a `Recurrence` enum plus `is_due_on()`. A naive merge would have created two competing ways to decide whether a task is "due." Instead of accepting that, I kept `is_due_on` as the single source of truth and had `due_date` act as an optional override that `is_due_on` checks first — so regenerated recurring instances pin to a date without breaking the existing recurrence rules (or the tests that covered them).
+
+I also rejected a suggested `main.py` ordering that assumed tasks were added in time order; my sort tiebreak (shortest-duration-first) actually reordered them, so a test assertion failed. I verified which side was wrong by reading the failure, confirmed the *code* was behaving correctly and the *test's assumption* was wrong, and fixed the test rather than the logic.
+
+I verified AI output three ways throughout: running `python -m pytest` after every change, running `python main.py` to eyeball realistic output, and driving the Streamlit UI headlessly with `AppTest` to confirm the full add-pet → add-task → generate flow ran without exceptions.
 
 ---
 
@@ -69,7 +79,7 @@ A second, related tradeoff is in conflict detection. `Scheduler.find_time_confli
 
 **a. What you tested**
 
-The test suite in `tests/test_pawpal.py` (20 tests) covers the behaviors most likely to break the app if they were wrong:
+The test suite in `tests/test_pawpal.py` (33 tests) covers the behaviors most likely to break the app if they were wrong:
 
 - **Data model** — `mark_complete()` flips a task's status, adding a task increases a pet's task count, `Owner.add_task` registers the pet, `all_tasks()` spans multiple pets, and `add_pet` is idempotent.
 - **Recurrence filtering** — daily/once tasks are always due; weekly tasks are due only on their `day_of_week`.
@@ -92,12 +102,14 @@ Edge cases I'd test next with more time: tasks whose duration exceeds the entire
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+I'm most satisfied with the clean separation between the logic layer (`pawpal_system.py`) and the two front-ends (`main.py` CLI and `app.py` Streamlit). Building and verifying the "brain" first, CLI-first, meant that by the time I wired up the UI, the hard part was already tested — the UI just calls `Scheduler` methods and renders results. That separation also made the whole thing testable: 33 pytest cases run in a fraction of a second because they exercise plain Python objects, not the UI.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+The scheduler's handling of *time* is the weakest area. Right now `preferred_time` only affects ordering, not actual placement, and conflict detection only catches exact same-time matches, not duration overlaps. In another iteration I'd make the scheduler slot-aware: honor preferred times as real bookings, use the existing `detect_conflicts` (duration overlap) logic at the task level, and handle plans that cross midnight. I'd also add persistence so an owner's pets/tasks survive between sessions instead of living only in `st.session_state`.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+The biggest lesson was what it actually means to be the "lead architect" with a powerful AI: the AI is fast at *producing* code, but it doesn't own the *design*. It will happily follow a prompt into an inconsistent model (like two competing ways to decide if a task is due) because it optimizes for the local request, not the coherence of the whole system. My job was to hold the design in my head, reject or reshape suggestions that didn't fit it, and verify every change with tests I could reason about. AI made me much faster, but the judgment about *what "good" looks like* had to stay human.
+
+**Using separate chat sessions per phase** helped keep that judgment focused — a fresh session for testing, for example, meant the assistant wasn't anchored on the implementation choices from an earlier conversation and could think about edge cases with fresh eyes, while I carried the through-line of the design across all of them.

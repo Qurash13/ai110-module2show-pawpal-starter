@@ -1,0 +1,87 @@
+classDiagram
+    %% PawPal+ final class design — matches pawpal_system.py after Phase 4/5.
+
+    class Owner {
+        +str name
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet: Pet) None
+        +add_task(pet: Pet, task: Task) None
+        +all_tasks() list~Task~
+        +tasks_for_pet(pet_name) list~Task~
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age_years
+        +list~Task~ tasks
+        +add_task(task: Task) None
+        +complete_task(task, on_date) Optional~Task~
+    }
+
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +Priority priority
+        +Recurrence recurrence
+        +Optional~time~ preferred_time
+        +Optional~int~ day_of_week
+        +bool completed
+        +Optional~date~ due_date
+        +mark_complete() None
+        +next_occurrence(completed_on) Optional~Task~
+        +is_due_on(day) bool
+    }
+
+    class Scheduler {
+        +int available_minutes
+        +time day_start
+        +sort_tasks(tasks) list~Task~
+        +sort_by_time(tasks) list~Task~
+        +filter_by_status(tasks, completed) list~Task~
+        +filter_by_pet(owner, pet_name) list~Task~
+        +find_time_conflicts(tasks) list~str~
+        +detect_conflicts(plan) list~ScheduledItem~
+        +generate_plan(tasks, day) DailyPlan
+        +plan_for_owner(owner, day) DailyPlan
+        +explain_plan(plan) str
+    }
+
+    class ScheduledItem {
+        +Task task
+        +time start
+        +time end
+    }
+
+    class DailyPlan {
+        +list~ScheduledItem~ items
+        +list~Task~ skipped
+        +int total_minutes
+    }
+
+    class Priority {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+    }
+
+    class Recurrence {
+        <<enumeration>>
+        ONCE
+        DAILY
+        WEEKLY
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Scheduler ..> Task : schedules
+    Scheduler ..> Owner : reads tasks from
+    Scheduler ..> DailyPlan : produces
+    DailyPlan "1" --> "*" ScheduledItem : contains
+    ScheduledItem --> Task : wraps
+    Task --> Priority : uses
+    Task --> Recurrence : uses

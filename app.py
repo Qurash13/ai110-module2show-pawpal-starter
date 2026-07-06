@@ -113,14 +113,31 @@ if owner.pets:
                 st.warning("Give the task a title first.")
 
 # --- Current tasks ---------------------------------------------------------
-
+# A budget-less Scheduler is fine here: sorting/filtering/conflict checks don't
+# depend on available_minutes or day_start.
+display = Scheduler()
 all_tasks = owner.all_tasks()
+
 if all_tasks:
-    st.write("Current tasks:")
+    st.subheader("Current tasks")
+
+    # Proactive conflict warnings so the owner sees clashes while editing.
+    conflicts = display.find_time_conflicts(all_tasks)
+    for warning in conflicts:
+        st.warning(warning)
+    if not conflicts:
+        st.success("No time conflicts.")
+
+    # Filter by pet, then show the list sorted chronologically by preferred time.
+    pet_names = [p.name for p in owner.pets]
+    which = st.selectbox("Show tasks for", ["All pets", *pet_names])
+    shown = all_tasks if which == "All pets" else display.filter_by_pet(owner, which)
+
+    pet_of = {id(t): p.name for p in owner.pets for t in p.tasks}
     st.table(
         [
             {
-                "pet": pet.name,
+                "pet": pet_of[id(t)],
                 "task": t.title,
                 "min": t.duration_minutes,
                 "priority": t.priority.name.lower(),
@@ -128,10 +145,32 @@ if all_tasks:
                 "preferred": t.preferred_time.strftime("%H:%M") if t.preferred_time else "—",
                 "done": "✓" if t.completed else "",
             }
-            for pet in owner.pets
-            for t in pet.tasks
+            for t in display.sort_by_time(shown)
         ]
     )
+
+    # Mark a task complete — demonstrates recurring-task regeneration.
+    outstanding = [
+        (p, t) for p in owner.pets for t in p.tasks if not t.completed
+    ]
+    if outstanding:
+        with st.expander("Mark a task complete"):
+            choice = st.selectbox(
+                "Task",
+                range(len(outstanding)),
+                format_func=lambda i: f"{outstanding[i][0].name} — {outstanding[i][1].title}",
+            )
+            if st.button("Complete task"):
+                pet, task = outstanding[choice]
+                follow_up = pet.complete_task(task, on_date=date.today())
+                if follow_up is not None:
+                    st.success(
+                        f"Completed '{task.title}'. Next {task.recurrence.value} "
+                        f"occurrence scheduled for {follow_up.due_date}."
+                    )
+                else:
+                    st.success(f"Completed '{task.title}' (one-off, no repeat).")
+                st.rerun()
 
 st.divider()
 
