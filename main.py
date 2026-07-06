@@ -7,7 +7,7 @@ prints today's schedule to the terminal:
     python main.py
 """
 
-from datetime import date, time, timedelta
+from datetime import date, time
 
 from pawpal_system import Owner, Pet, Priority, Recurrence, Scheduler, Task
 

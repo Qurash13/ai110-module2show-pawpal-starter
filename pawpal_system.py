@@ -121,8 +121,12 @@ class Owner:
     pets: list[Pet] = field(default_factory=list)
 
     def add_pet(self, pet: Pet) -> None:
-        """Register a pet under this owner (idempotent)."""
-        if pet not in self.pets:
+        """Register a pet under this owner, ignoring a re-add of the same object.
+
+        Dedupe is by identity, not value, so two distinct pets that happen to
+        share a name/species (e.g. two dogs both named "Rex") are both kept.
+        """
+        if not any(p is pet for p in self.pets):
             self.pets.append(pet)
 
     def add_task(self, pet: Pet, task: Task) -> None:

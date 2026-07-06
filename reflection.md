@@ -79,7 +79,7 @@ I verified AI output three ways throughout: running `python -m pytest` after eve
 
 **a. What you tested**
 
-The test suite in `tests/test_pawpal.py` (33 tests) covers the behaviors most likely to break the app if they were wrong:
+The test suite in `tests/test_pawpal.py` (34 tests) covers the behaviors most likely to break the app if they were wrong:
 
 - **Data model** — `mark_complete()` flips a task's status, adding a task increases a pet's task count, `Owner.add_task` registers the pet, `all_tasks()` spans multiple pets, and `add_pet` is idempotent.
 - **Recurrence filtering** — daily/once tasks are always due; weekly tasks are due only on their `day_of_week`.
@@ -102,7 +102,7 @@ Edge cases I'd test next with more time: tasks whose duration exceeds the entire
 
 **a. What went well**
 
-I'm most satisfied with the clean separation between the logic layer (`pawpal_system.py`) and the two front-ends (`main.py` CLI and `app.py` Streamlit). Building and verifying the "brain" first, CLI-first, meant that by the time I wired up the UI, the hard part was already tested — the UI just calls `Scheduler` methods and renders results. That separation also made the whole thing testable: 33 pytest cases run in a fraction of a second because they exercise plain Python objects, not the UI.
+I'm most satisfied with the clean separation between the logic layer (`pawpal_system.py`) and the two front-ends (`main.py` CLI and `app.py` Streamlit). Building and verifying the "brain" first, CLI-first, meant that by the time I wired up the UI, the hard part was already tested — the UI just calls `Scheduler` methods and renders results. That separation also made the whole thing testable: 34 pytest cases run in a fraction of a second because they exercise plain Python objects, not the UI.
 
 **b. What you would improve**
 

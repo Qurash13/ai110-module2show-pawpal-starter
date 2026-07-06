@@ -122,7 +122,9 @@ if all_tasks:
     st.subheader("Current tasks")
 
     # Proactive conflict warnings so the owner sees clashes while editing.
-    conflicts = display.find_time_conflicts(all_tasks)
+    # Only outstanding tasks can clash — completed ones are already done.
+    active_tasks = display.filter_by_status(all_tasks, completed=False)
+    conflicts = display.find_time_conflicts(active_tasks)
     for warning in conflicts:
         st.warning(warning)
     if not conflicts:
@@ -191,7 +193,9 @@ if st.button("Generate schedule", type="primary"):
     else:
         scheduler = Scheduler(available_minutes=int(available), day_start=day_start)
 
-        for warning in scheduler.find_time_conflicts(all_tasks):
+        for warning in scheduler.find_time_conflicts(
+            scheduler.filter_by_status(all_tasks, completed=False)
+        ):
             st.warning(warning)
 
         plan = scheduler.plan_for_owner(owner, plan_day)

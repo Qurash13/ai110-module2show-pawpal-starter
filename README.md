@@ -105,7 +105,7 @@ Run the full suite from the project root:
 python -m pytest
 ```
 
-**What the tests cover** (`tests/test_pawpal.py`, 33 tests):
+**What the tests cover** (`tests/test_pawpal.py`, 34 tests):
 
 - **Data model** — adding a task increases a pet's task count, `mark_complete()` flips status, `Owner.add_task` registers the pet, and `all_tasks()` spans multiple pets.
 - **Sorting correctness** — `sort_by_time` returns tasks in chronological order (untimed last); `sort_tasks` orders by priority with correct tiebreaks and doesn't mutate its input.
@@ -120,18 +120,16 @@ Sample test output:
 ```
 $ python -m pytest
 ============================= test session starts ==============================
-collected 33 items
+collected 34 items
 
-tests/test_pawpal.py .................................                   [100%]
+tests/test_pawpal.py ..................................                  [100%]
 
-============================== 33 passed in 0.08s ==============================
+============================== 34 passed in 0.04s ==============================
 ```
 
 **Confidence Level: ★★★★☆ (4/5).** The core logic — sorting, filtering, recurrence, budget enforcement, and conflict detection — is well covered and all green. One star withheld because a few deliberate simplifications aren't yet exercised end-to-end (preferred time isn't used for real placement, weekly recurrence assumes a single `day_of_week`, and plans assume a single day that doesn't cross midnight). See `reflection.md` §4 for the edge cases I'd test next.
 
 ## 📐 Smarter Scheduling
-
-> Fill in once you've implemented scheduling logic.
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|

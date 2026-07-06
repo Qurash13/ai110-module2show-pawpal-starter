@@ -62,6 +62,14 @@ def test_add_pet_is_idempotent():
     assert owner.pets == [pet]
 
 
+def test_add_pet_keeps_distinct_pets_with_equal_fields():
+    # Two different pets that happen to share a name/species must both be kept.
+    owner = Owner("Jordan")
+    owner.add_pet(Pet("Rex"))
+    owner.add_pet(Pet("Rex"))
+    assert len(owner.pets) == 2
+
+
 def test_all_tasks_spans_multiple_pets():
     owner = Owner("Jordan")
     dog, cat = Pet("Biscuit"), Pet("Mochi")
