@@ -48,19 +48,41 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 
 ```
 $ python main.py
+
+All tasks sorted by time
+------------------------
+  08:00  Morning walk
+  09:00  Breakfast
+  09:00  Feed Mochi
+  16:00  Play session
+  17:00  Evening walk
+    —    Litter box
+
+Filtering
+---------
+  Biscuit's tasks: ['Evening walk', 'Morning walk', 'Breakfast']
+  Incomplete tasks: 6 of 6
+
+Conflict detection
+------------------
+  ⚠️ Conflict at 09:00: Breakfast, Feed Mochi
+
+Recurring tasks
+---------------
+  Completed 'Morning walk' (daily).
+  Auto-created next occurrence due 2026-07-07 (today + 1 day).
+
 Today's Schedule — Jordan's pets (Monday, July 06)
+--------------------------------------------------
 (budget: 90 min from 08:00)
 
 Daily plan:
-  08:00 — Morning walk (30 min) [priority: high]
-  08:30 — Breakfast (10 min) [priority: high]
-  08:40 — Feed Mochi (10 min) [priority: high]
-  08:50 — Evening walk (30 min) [priority: medium]
-Total: 80 min scheduled across 4 task(s).
-
-Skipped (not enough time):
-  - Litter box (15 min) [priority: medium]
-  - Play session (20 min) [priority: low]
+  08:00 — Breakfast (10 min) [priority: high]
+  08:10 — Feed Mochi (10 min) [priority: high]
+  08:20 — Evening walk (30 min) [priority: medium]
+  08:50 — Litter box (15 min) [priority: medium]
+  09:05 — Play session (20 min) [priority: low]
+Total: 85 min scheduled across 5 task(s).
 ```
 
 ## 🧪 Testing PawPal+
@@ -77,8 +99,8 @@ Sample test output:
 
 ```
 $ pytest -q
-....................                                                     [100%]
-20 passed in 0.05s
+...............................                                          [100%]
+31 passed in 0.09s
 ```
 
 ## 📐 Smarter Scheduling
@@ -87,10 +109,13 @@ $ pytest -q
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | `Scheduler.sort_tasks` | Priority (high→low), then preferred time (set before unset, earlier first), then shortest duration as tiebreak so more tasks fit |
-| Filtering | `Scheduler.generate_plan`, `Task.is_due_on` | Tasks not due today are filtered out; tasks that don't fit the time budget go to `DailyPlan.skipped` |
-| Conflict handling | `Scheduler.detect_conflicts` | Flags overlapping time slots; greedy back-to-back placement never creates them, so this guards edited/hand-built plans |
-| Recurring tasks | `Task.is_due_on`, `Recurrence` | `DAILY`/`ONCE` always due; `WEEKLY` due only on its `day_of_week` |
+| Sort by priority | `Scheduler.sort_tasks` | Priority (high→low), then preferred time (set before unset, earlier first), then shortest duration as tiebreak so more tasks fit. Used when building the plan. |
+| Sort by time | `Scheduler.sort_by_time` | Orders tasks by `preferred_time` (earliest first); untimed tasks sort last. Used for displaying a timeline view. |
+| Filter by status | `Scheduler.filter_by_status` | Returns tasks matching a completion status (e.g., only outstanding tasks). |
+| Filter by pet | `Scheduler.filter_by_pet`, `Owner.tasks_for_pet` | Returns the tasks belonging to a named pet. |
+| Due / budget filtering | `Scheduler.generate_plan`, `Task.is_due_on` | Tasks not due on the target day (and completed tasks) are filtered out; tasks that don't fit the time budget go to `DailyPlan.skipped`. |
+| Conflict detection | `Scheduler.find_time_conflicts` | Lightweight check that returns warning strings when tasks share the exact same `preferred_time` (doesn't crash). `Scheduler.detect_conflicts` additionally flags duration overlaps in a built plan. |
+| Recurring tasks | `Task.next_occurrence`, `Pet.complete_task`, `Recurrence` | Completing a `DAILY`/`WEEKLY` task auto-creates its next occurrence (`today + 1 day` / `+ 7 days` via `timedelta`), pinned to that date; `ONCE` tasks don't repeat. |
 
 ## 📸 Demo Walkthrough
 

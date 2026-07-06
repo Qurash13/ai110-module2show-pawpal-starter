@@ -47,6 +47,8 @@ The biggest tradeoff is that the scheduler places tasks **back-to-back starting 
 
 This is reasonable for the scenario because the primary goal is deciding *what* gets done with limited time and *in what order of importance*, not producing a minute-perfect calendar. Back-to-back placement also means the plan is guaranteed conflict-free by construction (no overlaps to resolve), which keeps the logic simple and predictable. Honoring fixed time slots would introduce gaps, conflicts, and a much harder packing problem — a worthwhile future iteration, but not what this scenario needs first. (`detect_conflicts` already exists so a future slot-aware version can be validated.)
 
+A second, related tradeoff is in conflict detection. `Scheduler.find_time_conflicts` only flags tasks that share the **exact same `preferred_time`** (e.g., two tasks both at 09:00). It does *not* detect overlaps caused by duration — a 30-minute task at 09:00 and another at 09:15 don't share a start time, so they aren't flagged even though they'd collide on a real calendar. I kept the exact-match version because it's cheap (one pass, group by start time), easy to read, and matches how the preferred-time field is actually used here (a rough "when I'd like this to happen" hint, not a booked slot). Duration-aware overlap detection already exists for *scheduled* items in `detect_conflicts`; if preferred times ever became hard bookings, I'd promote that logic into the task-level check too.
+
 ---
 
 ## 3. AI Collaboration

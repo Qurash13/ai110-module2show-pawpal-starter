@@ -8,6 +8,7 @@ classDiagram
         +add_pet(pet: Pet) None
         +add_task(pet: Pet, task: Task) None
         +all_tasks() list~Task~
+        +tasks_for_pet(pet_name) list~Task~
     }
 
     class Pet {
@@ -17,6 +18,7 @@ classDiagram
         +int age_years
         +list~Task~ tasks
         +add_task(task: Task) None
+        +complete_task(task, on_date) Optional~Task~
     }
 
     class Task {
@@ -28,7 +30,9 @@ classDiagram
         +Optional~time~ preferred_time
         +Optional~int~ day_of_week
         +bool completed
+        +Optional~date~ due_date
         +mark_complete() None
+        +next_occurrence(completed_on) Optional~Task~
         +is_due_on(day) bool
     }
 
@@ -36,6 +40,10 @@ classDiagram
         +int available_minutes
         +time day_start
         +sort_tasks(tasks) list~Task~
+        +sort_by_time(tasks) list~Task~
+        +filter_by_status(tasks, completed) list~Task~
+        +filter_by_pet(owner, pet_name) list~Task~
+        +find_time_conflicts(tasks) list~str~
         +detect_conflicts(plan) list~ScheduledItem~
         +generate_plan(tasks, day) DailyPlan
         +plan_for_owner(owner, day) DailyPlan

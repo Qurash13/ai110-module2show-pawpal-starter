@@ -5,7 +5,7 @@ checks, plus recurrence filtering, priority ordering, time-budget enforcement,
 conflict detection, and explanations.
 """
 
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from pawpal_system import (
     DailyPlan,
@@ -174,6 +174,99 @@ def test_plan_for_owner_gathers_all_pets():
     owner.add_task(Pet("Mochi"), Task("Feed", duration_minutes=10))
     plan = Scheduler().plan_for_owner(owner, WEDNESDAY)
     assert len(plan.items) == 2
+
+
+# --- Sort by time / filtering (Phase 4) ------------------------------------
+
+
+def test_sort_by_time_orders_earliest_first_with_untimed_last():
+    a = Task("late", preferred_time=time(17, 0))
+    b = Task("early", preferred_time=time(8, 0))
+    c = Task("untimed")
+    ordered = Scheduler().sort_by_time([a, c, b])
+    assert [t.title for t in ordered] == ["early", "late", "untimed"]
+
+
+def test_filter_by_status():
+    done = Task("done")
+    done.mark_complete()
+    todo = Task("todo")
+    sched = Scheduler()
+    assert sched.filter_by_status([done, todo], completed=False) == [todo]
+    assert sched.filter_by_status([done, todo], completed=True) == [done]
+
+
+def test_filter_by_pet():
+    owner = Owner("Jordan")
+    owner.add_task(Pet("Biscuit"), Task("Walk"))
+    owner.add_task(Pet("Mochi"), Task("Litter"))
+    tasks = Scheduler().filter_by_pet(owner, "Mochi")
+    assert [t.title for t in tasks] == ["Litter"]
+
+
+# --- Time-conflict warnings (Phase 4) --------------------------------------
+
+
+def test_find_time_conflicts_warns_on_same_time():
+    tasks = [
+        Task("Breakfast", preferred_time=time(9, 0)),
+        Task("Feed cat", preferred_time=time(9, 0)),
+        Task("Walk", preferred_time=time(8, 0)),
+    ]
+    warnings = Scheduler().find_time_conflicts(tasks)
+    assert len(warnings) == 1
+    assert "09:00" in warnings[0]
+    assert "Breakfast" in warnings[0] and "Feed cat" in warnings[0]
+
+
+def test_find_time_conflicts_empty_when_none():
+    tasks = [Task("A", preferred_time=time(8, 0)), Task("B", preferred_time=time(9, 0)), Task("C")]
+    assert Scheduler().find_time_conflicts(tasks) == []
+
+
+# --- Recurring task regeneration (Phase 4) ---------------------------------
+
+
+def test_next_occurrence_daily_advances_one_day():
+    nxt = Task("Walk", recurrence=Recurrence.DAILY).next_occurrence(MONDAY)
+    assert nxt is not None
+    assert nxt.due_date == MONDAY + timedelta(days=1)
+    assert nxt.completed is False
+
+
+def test_next_occurrence_weekly_advances_seven_days():
+    nxt = Task("Bath", recurrence=Recurrence.WEEKLY).next_occurrence(MONDAY)
+    assert nxt.due_date == MONDAY + timedelta(weeks=1)
+
+
+def test_next_occurrence_once_returns_none():
+    assert Task("Vet", recurrence=Recurrence.ONCE).next_occurrence(MONDAY) is None
+
+
+def test_complete_task_marks_done_and_adds_next():
+    pet = Pet("Biscuit")
+    walk = Task("Walk", recurrence=Recurrence.DAILY)
+    pet.add_task(walk)
+    follow_up = pet.complete_task(walk, on_date=MONDAY)
+
+    assert walk.completed is True
+    assert follow_up in pet.tasks
+    assert follow_up.due_date == MONDAY + timedelta(days=1)
+    assert len(pet.tasks) == 2
+
+
+def test_complete_once_task_adds_nothing():
+    pet = Pet("Biscuit")
+    vet = Task("Vet", recurrence=Recurrence.ONCE)
+    pet.add_task(vet)
+    assert pet.complete_task(vet, on_date=MONDAY) is None
+    assert len(pet.tasks) == 1
+
+
+def test_due_date_pins_task_to_exact_day():
+    task = Task("Walk", recurrence=Recurrence.DAILY, due_date=WEDNESDAY)
+    assert task.is_due_on(WEDNESDAY)
+    assert not task.is_due_on(MONDAY)
 
 
 # --- Conflict detection ----------------------------------------------------

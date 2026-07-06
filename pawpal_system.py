@@ -8,7 +8,7 @@ plan. Designed to be driven from a CLI/demo script or the Streamlit UI in
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from enum import Enum, IntEnum
 from typing import Optional
@@ -49,19 +49,37 @@ class Task:
     # Only used for WEEKLY tasks: 0 = Monday ... 6 = Sunday. Defaults to Monday.
     day_of_week: Optional[int] = None
     completed: bool = False
+    # Set when a recurring task regenerates: pins the instance to one date.
+    due_date: Optional[date] = None
 
     def mark_complete(self) -> None:
         """Mark this task as done so it drops out of future plans."""
         self.completed = True
 
+    def next_occurrence(self, completed_on: Optional[date] = None) -> Optional[Task]:
+        """Return a fresh, uncompleted copy of this task for its next due date.
+
+        DAILY advances one day, WEEKLY advances seven; ONCE tasks don't repeat
+        and return ``None``. The next date is measured from this instance's
+        ``due_date`` if set, otherwise from ``completed_on`` (today by default).
+        """
+        if self.recurrence == Recurrence.ONCE:
+            return None
+        base = self.due_date or completed_on or date.today()
+        step = timedelta(days=1) if self.recurrence == Recurrence.DAILY else timedelta(weeks=1)
+        return replace(self, completed=False, due_date=base + step)
+
     def is_due_on(self, day: date) -> bool:
         """Return True if this task should appear in the plan for ``day``.
 
-        - DAILY and ONCE tasks are always due (a one-off is scheduled for the
-          day the owner is planning).
+        - A task pinned to a ``due_date`` is due only on that exact date.
+        - Otherwise DAILY and ONCE tasks are always due (a one-off is scheduled
+          for whatever day the owner is planning).
         - WEEKLY tasks are due only when ``day`` falls on ``day_of_week``
           (Monday if none was set).
         """
+        if self.due_date is not None:
+            return day == self.due_date
         if self.recurrence in (Recurrence.DAILY, Recurrence.ONCE):
             return True
         target = self.day_of_week if self.day_of_week is not None else 0
@@ -81,6 +99,17 @@ class Pet:
     def add_task(self, task: Task) -> None:
         """Attach a care task to this pet."""
         self.tasks.append(task)
+
+    def complete_task(self, task: Task, on_date: Optional[date] = None) -> Optional[Task]:
+        """Mark ``task`` done and auto-add its next occurrence if it recurs.
+
+        Returns the newly created follow-up task, or ``None`` for one-off tasks.
+        """
+        task.mark_complete()
+        nxt = task.next_occurrence(on_date)
+        if nxt is not None:
+            self.add_task(nxt)
+        return nxt
 
 
 @dataclass
@@ -104,6 +133,10 @@ class Owner:
     def all_tasks(self) -> list[Task]:
         """Return every task across all of the owner's pets."""
         return [task for pet in self.pets for task in pet.tasks]
+
+    def tasks_for_pet(self, pet_name: str) -> list[Task]:
+        """Return the tasks belonging to the pet(s) with ``pet_name``."""
+        return [t for pet in self.pets if pet.name == pet_name for t in pet.tasks]
 
 
 @dataclass
@@ -148,6 +181,46 @@ class Scheduler:
                 t.duration_minutes,
             ),
         )
+
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Order tasks by preferred time of day (earliest first).
+
+        Tasks with no preferred time sort to the end. Returns a new list; the
+        input is left untouched.
+        """
+        return sorted(
+            tasks,
+            key=lambda t: (t.preferred_time is None, t.preferred_time or time.min),
+        )
+
+    def filter_by_status(self, tasks: list[Task], completed: bool = False) -> list[Task]:
+        """Return only the tasks whose completion status matches ``completed``."""
+        return [t for t in tasks if t.completed == completed]
+
+    def filter_by_pet(self, owner: Owner, pet_name: str) -> list[Task]:
+        """Return the owner's tasks that belong to the pet named ``pet_name``."""
+        return owner.tasks_for_pet(pet_name)
+
+    def find_time_conflicts(self, tasks: list[Task]) -> list[str]:
+        """Lightweight conflict check: warn when tasks share a preferred time.
+
+        Returns a list of human-readable warning strings (empty if none) instead
+        of raising, so callers can surface the warnings without crashing. Only
+        exact ``preferred_time`` matches are flagged; tasks with no preferred
+        time are ignored.
+        """
+        by_time: dict[time, list[str]] = {}
+        for task in tasks:
+            if task.preferred_time is not None:
+                by_time.setdefault(task.preferred_time, []).append(task.title)
+
+        warnings: list[str] = []
+        for slot, titles in sorted(by_time.items()):
+            if len(titles) > 1:
+                warnings.append(
+                    f"⚠️ Conflict at {slot.strftime('%H:%M')}: " + ", ".join(titles)
+                )
+        return warnings
 
     def generate_plan(self, tasks: list[Task], day: date) -> DailyPlan:
         """Build a daily plan for ``day`` that fits within ``available_minutes``.

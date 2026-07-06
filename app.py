@@ -151,6 +151,10 @@ if st.button("Generate schedule", type="primary"):
         st.warning("Add at least one pet and task first.")
     else:
         scheduler = Scheduler(available_minutes=int(available), day_start=day_start)
+
+        for warning in scheduler.find_time_conflicts(all_tasks):
+            st.warning(warning)
+
         plan = scheduler.plan_for_owner(owner, plan_day)
 
         st.markdown(f"### Plan for {owner.name}'s pets — {plan_day:%A, %B %d}")
