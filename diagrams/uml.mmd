@@ -1,15 +1,74 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% PawPal+ class design (Phase 1 draft — update in Phase 6 to match implementation)
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Owner {
+        +str name
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet: Pet) None
+        +add_task(pet: Pet, task: Task) None
+        +all_tasks() list~Task~
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age_years
+        +list~Task~ tasks
+        +add_task(task: Task) None
     }
 
-    ClassName --> AnotherClass : relationship
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +Priority priority
+        +Recurrence recurrence
+        +Optional~time~ preferred_time
+        +is_due_on(day) bool
+    }
+
+    class Scheduler {
+        +int available_minutes
+        +time day_start
+        +sort_tasks(tasks) list~Task~
+        +detect_conflicts(plan) list~ScheduledItem~
+        +generate_plan(tasks) DailyPlan
+        +explain_plan(plan) str
+    }
+
+    class ScheduledItem {
+        +Task task
+        +time start
+        +time end
+    }
+
+    class DailyPlan {
+        +list~ScheduledItem~ items
+        +list~Task~ skipped
+        +int total_minutes
+    }
+
+    class Priority {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+    }
+
+    class Recurrence {
+        <<enumeration>>
+        ONCE
+        DAILY
+        WEEKLY
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Scheduler ..> Task : schedules
+    Scheduler ..> DailyPlan : produces
+    DailyPlan "1" --> "*" ScheduledItem : contains
+    ScheduledItem --> Task : wraps
+    Task --> Priority : uses
+    Task --> Recurrence : uses
