@@ -62,15 +62,19 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 ```
 $ python main.py
 
-All tasks sorted by time
-------------------------
-  08:00  Morning walk
-  09:00  Breakfast
-  09:00  Feed Mochi
-  16:00  Play session
-  17:00  Evening walk
-  17:00  Feed Mochi
-    —    Litter box
+Tasks ordered by priority, then time
+------------------------------------
+╭────────────┬────────┬─────────────────╮
+│ Priority   │ Time   │ Task            │
+├────────────┼────────┼─────────────────┤
+│ 🔴 High    │ 08:00  │ 🐕 Morning walk │
+│ 🔴 High    │ 09:00  │ 🍽️ Breakfast    │
+│ 🔴 High    │ 09:00  │ 🍽️ Feed Mochi   │
+│ 🔴 High    │ 17:00  │ 🍽️ Feed Mochi   │
+│ 🟡 Medium  │ 17:00  │ 🐕 Evening walk │
+│ 🟡 Medium  │ —      │ 🧹 Litter box   │
+│ 🟢 Low     │ 16:00  │ 🧸 Play session │
+╰────────────┴────────┴─────────────────╯
 
 Filtering
 ---------
@@ -91,16 +95,20 @@ Today's Schedule — Jordan's pets (Monday, July 06)
 --------------------------------------------------
 (budget: 90 min from 08:00)
 
-Daily plan:
-  08:00 — Breakfast (10 min) [priority: high]
-  08:10 — Feed Mochi (10 min) [priority: high]
-  08:20 — Feed Mochi (10 min) [priority: high]
-  08:30 — Evening walk (30 min) [priority: medium]
-  09:00 — Litter box (15 min) [priority: medium]
-Total: 75 min scheduled across 5 task(s).
+╭─────────────┬─────────────────┬──────────┬────────────╮
+│ When        │ Task            │ Length   │ Priority   │
+├─────────────┼─────────────────┼──────────┼────────────┤
+│ 08:00–08:10 │ 🍽️ Breakfast    │ 10 min   │ 🔴 High    │
+│ 08:10–08:20 │ 🍽️ Feed Mochi   │ 10 min   │ 🔴 High    │
+│ 08:20–08:30 │ 🍽️ Feed Mochi   │ 10 min   │ 🔴 High    │
+│ 08:30–09:00 │ 🐕 Evening walk │ 30 min   │ 🟡 Medium  │
+│ 09:00–09:15 │ 🧹 Litter box   │ 15 min   │ 🟡 Medium  │
+╰─────────────┴─────────────────┴──────────┴────────────╯
 
-Skipped (not enough time):
-  - Play session (20 min) [priority: low]
+✅ 75 min scheduled across 5 task(s).
+
+⏭️  Skipped (not enough time):
+   🧸 Play session — 20 min (🟢 Low)
 ```
 
 ## 🧪 Testing PawPal+
@@ -148,6 +156,57 @@ tests/test_pawpal.py ..................................                  [100%]
 | Recurring tasks | `Task.next_occurrence`, `Pet.complete_task`, `Recurrence` | Completing a recurring task auto-creates its next occurrence via `timedelta` (daily → +1 day, specific-days → next selected weekday, weekly → +7 days), pinned to that date; `ONCE` tasks don't repeat. |
 | Days of week | `Task.days_of_week`, `Task.is_due_on` | A task can run on a chosen set of weekdays; `is_due_on` returns True only for those days. The UI can add a task at multiple times of day in one step. |
 
+## 🎯 Advanced Priority Scheduling
+
+Every `Task` carries a `Priority` level (`LOW`, `MEDIUM`, `HIGH`), and the scheduler sorts **by priority first, then by time of day** (with shortest-duration as a final tiebreak so more tasks fit). This means high-priority care always claims the limited time budget before lower-priority tasks, and within the same priority level, earlier times come first.
+
+The sort key lives in [`Scheduler.sort_tasks`](pawpal_system.py):
+
+```python
+key=lambda t: (
+    -int(t.priority),                              # 1) priority, high → low
+    0 if t.preferred_time is not None else 1,      # 2) timed tasks before untimed
+    t.preferred_time or time.min,                  #    ...earliest time first
+    t.duration_minutes,                            # 3) shortest first (fit more)
+)
+```
+
+CLI output demonstrating priority-first ordering (`python main.py`) — note all 🔴 High tasks come before 🟡 Medium and 🟢 Low, and ties break by time:
+
+```
+Tasks ordered by priority, then time
+------------------------------------
+╭────────────┬────────┬─────────────────╮
+│ Priority   │ Time   │ Task            │
+├────────────┼────────┼─────────────────┤
+│ 🔴 High    │ 08:00  │ 🐕 Morning walk │
+│ 🔴 High    │ 09:00  │ 🍽️ Breakfast    │
+│ 🔴 High    │ 09:00  │ 🍽️ Feed Mochi   │
+│ 🔴 High    │ 17:00  │ 🍽️ Feed Mochi   │
+│ 🟡 Medium  │ 17:00  │ 🐕 Evening walk │
+│ 🟡 Medium  │ —      │ 🧹 Litter box   │
+│ 🟢 Low     │ 16:00  │ 🧸 Play session │
+╰────────────┴────────┴─────────────────╯
+```
+
+## 🎨 Output Formatting
+
+The CLI demo (`main.py`) uses professional, scannable formatting:
+
+- **Structured tables** via the [`tabulate`](https://pypi.org/project/tabulate/) library (`tablefmt="rounded_outline"`) for the priority list and the daily schedule — see the tables above.
+- **Emoji task-type icons** so each task's category is recognizable at a glance, via the `CATEGORY_EMOJI` map and the `task_label()` helper: 🐕 exercise · 🍽️ feeding · 💊 meds · 🛁 grooming · 🧸 enrichment · 🧹 cleaning · 📌 general.
+- **Color-coded priority badges** via the `PRIORITY_BADGE` map: 🔴 High · 🟡 Medium · 🟢 Low.
+- **Status glyphs** for the summary line (✅ scheduled, ⏭️ skipped, ⚠️ conflict).
+
+| Feature | Implemented by |
+|---------|----------------|
+| Structured CLI tables | `tabulate` library (`main.py`) |
+| Task-type emojis | `CATEGORY_EMOJI` + `task_label()` (`main.py`) |
+| Priority badges | `PRIORITY_BADGE` (`main.py`) |
+| Status glyphs | inline in `main()` (`main.py`) |
+
+In the Streamlit UI (`app.py`) the equivalent polish is a gradient hero banner, a warm theme (`.streamlit/config.toml`), `st.table` for task/plan grids, and `st.success`/`st.warning` for status and conflict messages.
+
 ## 📸 Demo Walkthrough
 
 Launch the web app with:
@@ -183,15 +242,19 @@ streamlit run app.py
 ### Sample CLI output (`python main.py`)
 
 ```
-All tasks sorted by time
-------------------------
-  08:00  Morning walk
-  09:00  Breakfast
-  09:00  Feed Mochi
-  16:00  Play session
-  17:00  Evening walk
-  17:00  Feed Mochi
-    —    Litter box
+Tasks ordered by priority, then time
+------------------------------------
+╭────────────┬────────┬─────────────────╮
+│ Priority   │ Time   │ Task            │
+├────────────┼────────┼─────────────────┤
+│ 🔴 High    │ 08:00  │ 🐕 Morning walk │
+│ 🔴 High    │ 09:00  │ 🍽️ Breakfast    │
+│ 🔴 High    │ 09:00  │ 🍽️ Feed Mochi   │
+│ 🔴 High    │ 17:00  │ 🍽️ Feed Mochi   │
+│ 🟡 Medium  │ 17:00  │ 🐕 Evening walk │
+│ 🟡 Medium  │ —      │ 🧹 Litter box   │
+│ 🟢 Low     │ 16:00  │ 🧸 Play session │
+╰────────────┴────────┴─────────────────╯
 
 Filtering
 ---------
@@ -212,16 +275,20 @@ Today's Schedule — Jordan's pets (Monday, July 06)
 --------------------------------------------------
 (budget: 90 min from 08:00)
 
-Daily plan:
-  08:00 — Breakfast (10 min) [priority: high]
-  08:10 — Feed Mochi (10 min) [priority: high]
-  08:20 — Feed Mochi (10 min) [priority: high]
-  08:30 — Evening walk (30 min) [priority: medium]
-  09:00 — Litter box (15 min) [priority: medium]
-Total: 75 min scheduled across 5 task(s).
+╭─────────────┬─────────────────┬──────────┬────────────╮
+│ When        │ Task            │ Length   │ Priority   │
+├─────────────┼─────────────────┼──────────┼────────────┤
+│ 08:00–08:10 │ 🍽️ Breakfast    │ 10 min   │ 🔴 High    │
+│ 08:10–08:20 │ 🍽️ Feed Mochi   │ 10 min   │ 🔴 High    │
+│ 08:20–08:30 │ 🍽️ Feed Mochi   │ 10 min   │ 🔴 High    │
+│ 08:30–09:00 │ 🐕 Evening walk │ 30 min   │ 🟡 Medium  │
+│ 09:00–09:15 │ 🧹 Litter box   │ 15 min   │ 🟡 Medium  │
+╰─────────────┴─────────────────┴──────────┴────────────╯
 
-Skipped (not enough time):
-  - Play session (20 min) [priority: low]
+✅ 75 min scheduled across 5 task(s).
+
+⏭️  Skipped (not enough time):
+   🧸 Play session — 20 min (🟢 Low)
 ```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
