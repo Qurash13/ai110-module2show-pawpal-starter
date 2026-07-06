@@ -32,13 +32,20 @@ One thing I considered but deliberately did **not** change: adding a back-refere
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+My scheduler considers four things when building a day's plan:
+
+- **A time budget** — `Scheduler.available_minutes`, the total time the owner has. Tasks are placed only while there's room left; anything that doesn't fit goes into `DailyPlan.skipped` instead of being dropped silently.
+- **Priority** — the primary sort key. `HIGH` tasks are placed before `MEDIUM`, which come before `LOW`, so the most important care always claims the limited time first.
+- **Preferred time** — a soft signal used as a tiebreak within a priority level: tasks that have a preferred time are ordered before those without, earliest first.
+- **Recurrence and completion** — before anything is scheduled, tasks that aren't due today (`Task.is_due_on`) and tasks already marked complete are filtered out.
+
+I decided priority mattered most because the scenario is explicitly about a *busy* owner who can't do everything — when time is scarce, the guarantee that matters is "the important stuff happens." Time budget is the hard constraint that makes that decision necessary in the first place; preferred time is genuinely nice-to-have, so I demoted it to a tiebreak rather than letting it override importance.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The biggest tradeoff is that the scheduler places tasks **back-to-back starting at `day_start` in priority order, and does not honor `preferred_time` as an actual placement slot** — it only uses it for ordering. So a task with a preferred time of 5:00 PM might be scheduled at 8:40 AM if that's where it falls in the sorted list.
+
+This is reasonable for the scenario because the primary goal is deciding *what* gets done with limited time and *in what order of importance*, not producing a minute-perfect calendar. Back-to-back placement also means the plan is guaranteed conflict-free by construction (no overlaps to resolve), which keeps the logic simple and predictable. Honoring fixed time slots would introduce gaps, conflicts, and a much harder packing problem — a worthwhile future iteration, but not what this scenario needs first. (`detect_conflicts` already exists so a future slot-aware version can be validated.)
 
 ---
 
@@ -60,13 +67,22 @@ One thing I considered but deliberately did **not** change: adding a back-refere
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+The test suite in `tests/test_pawpal.py` (20 tests) covers the behaviors most likely to break the app if they were wrong:
+
+- **Data model** — `mark_complete()` flips a task's status, adding a task increases a pet's task count, `Owner.add_task` registers the pet, `all_tasks()` spans multiple pets, and `add_pet` is idempotent.
+- **Recurrence filtering** — daily/once tasks are always due; weekly tasks are due only on their `day_of_week`.
+- **Sorting** — priority (high first) with correct preferred-time/duration tiebreaks, and that sorting doesn't mutate the caller's list.
+- **Plan generation** — tasks are placed back-to-back from `day_start`, the time budget is respected (overflow tasks are skipped), and not-due/completed tasks are filtered out entirely.
+- **Conflict detection** — overlaps are caught, and a normally generated plan has none.
+- **Explanation** — the output lists both scheduled and skipped tasks.
+
+These matter because the scheduler's correctness is what the whole app rests on — if priority ordering or the time budget were wrong, the owner would get a plan that quietly does the wrong things, and that's hard to notice by eye. I verified the behavior end-to-end two ways: `python main.py` for a realistic CLI run, and Streamlit's `AppTest` harness to confirm the UI's generate flow runs without errors.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+I'm fairly confident in the core logic: the ordering, budget enforcement, recurrence, and completion filtering are all covered by tests and match the CLI/UI output I've eyeballed. My confidence is lower on the parts I deliberately kept simple — preferred time isn't used for real placement, and weekly recurrence assumes a single `day_of_week`.
+
+Edge cases I'd test next with more time: tasks whose duration exceeds the entire budget, a preferred time that falls before `day_start`, plans that would run past midnight (the current time math assumes a single day), and multiple pets competing for the same scarce budget to confirm priority still wins across pets.
 
 ---
 
