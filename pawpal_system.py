@@ -115,8 +115,12 @@ class Scheduler:
         """Return scheduled items whose time slots overlap."""
         raise NotImplementedError
 
-    def generate_plan(self, tasks: list[Task]) -> DailyPlan:
-        """Build a daily plan that fits within ``available_minutes``."""
+    def generate_plan(self, tasks: list[Task], day: date) -> DailyPlan:
+        """Build a daily plan for ``day`` that fits within ``available_minutes``.
+
+        ``day`` is needed so recurring tasks can be filtered via
+        ``Task.is_due_on(day)`` before sorting and placement.
+        """
         raise NotImplementedError
 
     def explain_plan(self, plan: DailyPlan) -> str:

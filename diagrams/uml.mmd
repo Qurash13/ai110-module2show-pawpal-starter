@@ -34,7 +34,7 @@ classDiagram
         +time day_start
         +sort_tasks(tasks) list~Task~
         +detect_conflicts(plan) list~ScheduledItem~
-        +generate_plan(tasks) DailyPlan
+        +generate_plan(tasks, day) DailyPlan
         +explain_plan(plan) str
     }
 

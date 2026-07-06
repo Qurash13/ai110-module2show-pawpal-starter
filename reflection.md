@@ -22,8 +22,9 @@ Relationships: an Owner owns many Pets, a Pet has many Tasks, and the Scheduler 
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Reviewing the skeleton surfaced one gap in the scheduler's interface: `Task` has an `is_due_on(day)` method for handling recurrence, but `Scheduler.generate_plan(tasks)` originally took no date, so it had no `day` value to pass in. A plan is always *for a specific day*, so I changed the signature to `generate_plan(tasks, day)` and updated the UML to match. Without this, recurring tasks (daily vs. weekly) couldn't be filtered correctly before scheduling.
+
+One thing I considered but deliberately did **not** change: adding a back-reference from `Task` to its `Pet`. It would make explanations easier ("walk *for Mochi*"), but it couples the data classes and risks a circular structure. For now the pet context can be passed in where needed, keeping `Task` decoupled. I'll revisit this in Phase 6 if the explanation logic actually needs it.
 
 ---
 
