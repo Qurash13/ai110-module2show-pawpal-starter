@@ -47,11 +47,20 @@ pip install -r requirements.txt
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+$ python demo.py
+PawPal+ — plan for Jordan's pets on Monday, July 06
+(budget: 90 min from 08:00)
+
+Daily plan:
+  08:00 — Morning walk (30 min) [priority: high]
+  08:30 — Breakfast (10 min) [priority: high]
+  08:40 — Joint medication (5 min) [priority: high]
+  08:45 — Midday enrichment (20 min) [priority: medium]
+Total: 65 min scheduled across 4 task(s).
+
+Skipped (not enough time):
+  - Evening walk (30 min) [priority: medium]
+  - Weekly bath (45 min) [priority: low]
 ```
 
 ## 🧪 Testing PawPal+
@@ -67,7 +76,9 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+$ pytest -q
+................                                                         [100%]
+16 passed in 0.02s
 ```
 
 ## 📐 Smarter Scheduling
@@ -76,10 +87,10 @@ Sample test output:
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_tasks` | Priority (high→low), then preferred time (set before unset, earlier first), then shortest duration as tiebreak so more tasks fit |
+| Filtering | `Scheduler.generate_plan`, `Task.is_due_on` | Tasks not due today are filtered out; tasks that don't fit the time budget go to `DailyPlan.skipped` |
+| Conflict handling | `Scheduler.detect_conflicts` | Flags overlapping time slots; greedy back-to-back placement never creates them, so this guards edited/hand-built plans |
+| Recurring tasks | `Task.is_due_on`, `Recurrence` | `DAILY`/`ONCE` always due; `WEEKLY` due only on its `day_of_week` |
 
 ## 📸 Demo Walkthrough
 

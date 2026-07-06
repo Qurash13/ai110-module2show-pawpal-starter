@@ -1,0 +1,181 @@
+"""Tests for the PawPal+ core logic layer.
+
+Focused on the behaviors that matter most: recurrence filtering, priority
+ordering, time-budget enforcement, conflict detection, and the owner/pet data
+model.
+"""
+
+from datetime import date, time
+
+import pytest
+
+from pawpal_system import (
+    DailyPlan,
+    Owner,
+    Pet,
+    Priority,
+    Recurrence,
+    ScheduledItem,
+    Scheduler,
+    Task,
+)
+
+# A Wednesday and a Monday, for weekly-recurrence tests.
+WEDNESDAY = date(2026, 7, 8)
+MONDAY = date(2026, 7, 6)
+
+
+# --- Data model ------------------------------------------------------------
+
+
+def test_owner_add_task_registers_pet_and_task():
+    owner = Owner("Jordan")
+    pet = Pet("Mochi", species="cat")
+    task = Task("Feeding")
+
+    owner.add_task(pet, task)
+
+    assert pet in owner.pets
+    assert owner.all_tasks() == [task]
+
+
+def test_add_pet_is_idempotent():
+    owner = Owner("Jordan")
+    pet = Pet("Mochi")
+    owner.add_pet(pet)
+    owner.add_pet(pet)
+    assert owner.pets == [pet]
+
+
+def test_all_tasks_spans_multiple_pets():
+    owner = Owner("Jordan")
+    dog, cat = Pet("Biscuit"), Pet("Mochi")
+    owner.add_task(dog, Task("Walk"))
+    owner.add_task(cat, Task("Litter"))
+    assert len(owner.all_tasks()) == 2
+
+
+# --- Recurrence ------------------------------------------------------------
+
+
+def test_daily_and_once_always_due():
+    assert Task("Walk", recurrence=Recurrence.DAILY).is_due_on(WEDNESDAY)
+    assert Task("Vet", recurrence=Recurrence.ONCE).is_due_on(WEDNESDAY)
+
+
+def test_weekly_due_only_on_matching_weekday():
+    # day_of_week defaults to Monday (0)
+    weekly = Task("Bath", recurrence=Recurrence.WEEKLY)
+    assert weekly.is_due_on(MONDAY)
+    assert not weekly.is_due_on(WEDNESDAY)
+
+
+def test_weekly_respects_explicit_day_of_week():
+    weekly = Task("Nail trim", recurrence=Recurrence.WEEKLY, day_of_week=2)  # Wed
+    assert weekly.is_due_on(WEDNESDAY)
+    assert not weekly.is_due_on(MONDAY)
+
+
+# --- Sorting ---------------------------------------------------------------
+
+
+def test_sort_orders_by_priority_high_first():
+    low = Task("A", priority=Priority.LOW)
+    high = Task("B", priority=Priority.HIGH)
+    med = Task("C", priority=Priority.MEDIUM)
+    ordered = Scheduler().sort_tasks([low, high, med])
+    assert [t.priority for t in ordered] == [Priority.HIGH, Priority.MEDIUM, Priority.LOW]
+
+
+def test_sort_tiebreaks_by_preferred_time_then_duration():
+    early = Task("early", priority=Priority.HIGH, preferred_time=time(7, 0))
+    late = Task("late", priority=Priority.HIGH, preferred_time=time(9, 0))
+    no_time_short = Task("short", priority=Priority.HIGH, duration_minutes=5)
+    ordered = Scheduler().sort_tasks([no_time_short, late, early])
+    # Tasks with a preferred time come before those without; earlier first.
+    assert [t.title for t in ordered] == ["early", "late", "short"]
+
+
+def test_sort_does_not_mutate_input():
+    tasks = [Task("A", priority=Priority.LOW), Task("B", priority=Priority.HIGH)]
+    Scheduler().sort_tasks(tasks)
+    assert [t.title for t in tasks] == ["A", "B"]
+
+
+# --- Plan generation -------------------------------------------------------
+
+
+def test_plan_places_tasks_back_to_back_from_day_start():
+    sched = Scheduler(available_minutes=240, day_start=time(8, 0))
+    plan = sched.generate_plan(
+        [
+            Task("Walk", duration_minutes=30, priority=Priority.HIGH),
+            Task("Feed", duration_minutes=10, priority=Priority.MEDIUM),
+        ],
+        WEDNESDAY,
+    )
+    assert plan.items[0].start == time(8, 0)
+    assert plan.items[0].end == time(8, 30)
+    assert plan.items[1].start == time(8, 30)
+    assert plan.items[1].end == time(8, 40)
+    assert plan.total_minutes == 40
+
+
+def test_plan_respects_time_budget_and_skips_overflow():
+    sched = Scheduler(available_minutes=30)
+    high = Task("Meds", duration_minutes=20, priority=Priority.HIGH)
+    low = Task("Long enrichment", duration_minutes=20, priority=Priority.LOW)
+    plan = sched.generate_plan([low, high], WEDNESDAY)
+    # High priority fits first; the low-priority one no longer fits.
+    assert [i.task.title for i in plan.items] == ["Meds"]
+    assert low in plan.skipped
+    assert plan.total_minutes == 20
+
+
+def test_plan_filters_tasks_not_due():
+    sched = Scheduler()
+    weekly_wrong_day = Task("Bath", recurrence=Recurrence.WEEKLY, day_of_week=2)
+    plan = sched.generate_plan([weekly_wrong_day], MONDAY)
+    assert plan.items == []
+    assert plan.skipped == []  # filtered out entirely, not "skipped for time"
+
+
+def test_empty_task_list_yields_empty_plan():
+    plan = Scheduler().generate_plan([], WEDNESDAY)
+    assert plan.items == [] and plan.skipped == [] and plan.total_minutes == 0
+
+
+# --- Conflict detection ----------------------------------------------------
+
+
+def test_detect_conflicts_finds_overlap():
+    a = ScheduledItem(Task("A"), time(8, 0), time(8, 30))
+    b = ScheduledItem(Task("B"), time(8, 15), time(8, 45))  # overlaps A
+    conflicts = Scheduler().detect_conflicts(DailyPlan(items=[a, b]))
+    assert a in conflicts and b in conflicts
+
+
+def test_generated_plan_has_no_conflicts():
+    sched = Scheduler()
+    plan = sched.generate_plan(
+        [Task("A", duration_minutes=30), Task("B", duration_minutes=30)], WEDNESDAY
+    )
+    assert sched.detect_conflicts(plan) == []
+
+
+# --- Explanation -----------------------------------------------------------
+
+
+def test_explain_plan_lists_scheduled_and_skipped():
+    sched = Scheduler(available_minutes=15)
+    plan = sched.generate_plan(
+        [
+            Task("Walk", duration_minutes=15, priority=Priority.HIGH),
+            Task("Groom", duration_minutes=30, priority=Priority.LOW),
+        ],
+        WEDNESDAY,
+    )
+    text = sched.explain_plan(plan)
+    assert "Walk" in text
+    assert "Skipped" in text and "Groom" in text
+    assert "08:00" in text
