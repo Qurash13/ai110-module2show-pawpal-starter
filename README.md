@@ -87,21 +87,35 @@ Total: 85 min scheduled across 5 task(s).
 
 ## 🧪 Testing PawPal+
 
-```bash
-# Run the full test suite:
-pytest
+Run the full suite from the project root:
 
-# Run with coverage:
-pytest --cov
+```bash
+python -m pytest
 ```
+
+**What the tests cover** (`tests/test_pawpal.py`, 33 tests):
+
+- **Data model** — adding a task increases a pet's task count, `mark_complete()` flips status, `Owner.add_task` registers the pet, and `all_tasks()` spans multiple pets.
+- **Sorting correctness** — `sort_by_time` returns tasks in chronological order (untimed last); `sort_tasks` orders by priority with correct tiebreaks and doesn't mutate its input.
+- **Filtering** — by completion status and by pet name.
+- **Recurrence logic** — completing a daily task creates a new task due the following day (`+1`), weekly `+7`, one-off tasks don't repeat; `due_date` pins an instance to an exact day.
+- **Conflict detection** — flags tasks that share the exact same time, and generated plans have no duration overlaps.
+- **Scheduling** — back-to-back placement from `day_start`, time-budget enforcement (overflow skipped), and filtering of not-due/completed tasks.
+- **Edge cases** — empty task list, a pet with no tasks, and an owner with no pets all plan cleanly instead of crashing.
 
 Sample test output:
 
 ```
-$ pytest -q
-...............................                                          [100%]
-31 passed in 0.09s
+$ python -m pytest
+============================= test session starts ==============================
+collected 33 items
+
+tests/test_pawpal.py .................................                   [100%]
+
+============================== 33 passed in 0.08s ==============================
 ```
+
+**Confidence Level: ★★★★☆ (4/5).** The core logic — sorting, filtering, recurrence, budget enforcement, and conflict detection — is well covered and all green. One star withheld because a few deliberate simplifications aren't yet exercised end-to-end (preferred time isn't used for real placement, weekly recurrence assumes a single `day_of_week`, and plans assume a single day that doesn't cross midnight). See `reflection.md` §4 for the edge cases I'd test next.
 
 ## 📐 Smarter Scheduling
 

@@ -70,6 +70,20 @@ def test_all_tasks_spans_multiple_pets():
     assert len(owner.all_tasks()) == 2
 
 
+def test_pet_with_no_tasks_is_handled():
+    # Edge case: an owner with a pet but no tasks should plan cleanly, not crash.
+    owner = Owner("Jordan")
+    owner.add_pet(Pet("Biscuit"))
+    assert owner.all_tasks() == []
+    plan = Scheduler().plan_for_owner(owner, WEDNESDAY)
+    assert plan.items == [] and plan.total_minutes == 0
+
+
+def test_owner_with_no_pets_plans_cleanly():
+    plan = Scheduler().plan_for_owner(Owner("Jordan"), WEDNESDAY)
+    assert plan.items == [] and plan.skipped == []
+
+
 # --- Recurrence ------------------------------------------------------------
 
 
