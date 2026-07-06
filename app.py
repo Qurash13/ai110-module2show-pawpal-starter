@@ -70,20 +70,20 @@ def describe_schedule(t: Task) -> str:
 # Owner object in st.session_state. It (and every Pet/Task added to it) then
 # survives across reruns instead of being recreated empty each time.
 if "owner" not in st.session_state:
-    st.session_state.owner = Owner("Jordan")
+    st.session_state.owner = Owner("")
 owner: Owner = st.session_state.owner
 
 # --- Owner -----------------------------------------------------------------
 
 st.subheader("Owner")
-new_name = st.text_input("Owner name", value=owner.name)
-if new_name and new_name != owner.name:
+new_name = st.text_input("Owner name", value=owner.name, placeholder="Type name here")
+if new_name != owner.name:
     owner.name = new_name
 
 # Because the Owner persists in session_state, there's no natural way to clear
 # its pets/tasks during a session — this replaces it with a fresh Owner.
 if st.button("Reset everything"):
-    st.session_state.owner = Owner(new_name or "Jordan")
+    st.session_state.owner = Owner("")
     st.rerun()
 
 # --- Add a pet -------------------------------------------------------------
@@ -92,7 +92,7 @@ st.subheader("Add a pet")
 with st.form("add_pet", clear_on_submit=True):
     p_cols = st.columns(4)
     with p_cols[0]:
-        pet_name = st.text_input("Name", value="")
+        pet_name = st.text_input("Name", value="", placeholder="Add pet name")
     with p_cols[1]:
         species = st.selectbox("Species", ["dog", "cat", "other"])
     with p_cols[2]:
@@ -108,7 +108,7 @@ with st.form("add_pet", clear_on_submit=True):
             st.warning("Give the pet a name first.")
 
 if owner.pets:
-    st.caption(f"{owner.name} has {len(owner.pets)} pet(s): "
+    st.caption(f"{len(owner.pets)} pet(s): "
                + ", ".join(f"{p.name} ({p.species})" for p in owner.pets))
 else:
     st.info("No pets yet. Add one above to start scheduling.")
@@ -127,7 +127,7 @@ if owner.pets:
     with st.form("add_task", clear_on_submit=True):
         row1 = st.columns(3)
         with row1[0]:
-            task_title = st.text_input("Task title", value="Feeding")
+            task_title = st.text_input("Task title", value="", placeholder="e.g. Feeding")
         with row1[1]:
             duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=15)
         with row1[2]:
@@ -272,7 +272,8 @@ if st.button("Generate schedule", type="primary"):
 
         plan = scheduler.plan_for_owner(owner, plan_day)
 
-        st.markdown(f"### Plan for {owner.name}'s pets — {plan_day:%A, %B %d}")
+        whose = f"{owner.name}'s" if owner.name.strip() else "your"
+        st.markdown(f"### Plan for {whose} pets — {plan_day:%A, %B %d}")
         if plan.items:
             st.table(
                 [
