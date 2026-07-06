@@ -46,8 +46,11 @@ class Task:
     priority: Priority = Priority.MEDIUM
     recurrence: Recurrence = Recurrence.DAILY
     preferred_time: Optional[time] = None
-    # Only used for WEEKLY tasks: 0 = Monday ... 6 = Sunday. Defaults to Monday.
+    # Legacy single-day field for WEEKLY tasks: 0 = Monday ... 6 = Sunday.
     day_of_week: Optional[int] = None
+    # Preferred way to say "which weekdays": a set of 0=Mon..6=Sun. When set, it
+    # defines exactly which days the task is due (e.g. {0, 2, 4} = Mon/Wed/Fri).
+    days_of_week: Optional[frozenset[int]] = None
     completed: bool = False
     # Set when a recurring task regenerates: pins the instance to one date.
     due_date: Optional[date] = None
@@ -59,13 +62,20 @@ class Task:
     def next_occurrence(self, completed_on: Optional[date] = None) -> Optional[Task]:
         """Return a fresh, uncompleted copy of this task for its next due date.
 
-        DAILY advances one day, WEEKLY advances seven; ONCE tasks don't repeat
-        and return ``None``. The next date is measured from this instance's
-        ``due_date`` if set, otherwise from ``completed_on`` (today by default).
+        ONCE tasks don't repeat and return ``None``. When the task runs on a set
+        of weekdays, the next date is the soonest of those weekdays after the
+        base date. Otherwise DAILY advances one day and WEEKLY advances seven.
+        The base date is this instance's ``due_date`` if set, else ``completed_on``
+        (today by default).
         """
         if self.recurrence == Recurrence.ONCE:
             return None
         base = self.due_date or completed_on or date.today()
+        if self.days_of_week:
+            for offset in range(1, 8):
+                candidate = base + timedelta(days=offset)
+                if candidate.weekday() in self.days_of_week:
+                    return replace(self, completed=False, due_date=candidate)
         step = timedelta(days=1) if self.recurrence == Recurrence.DAILY else timedelta(weeks=1)
         return replace(self, completed=False, due_date=base + step)
 
@@ -73,13 +83,16 @@ class Task:
         """Return True if this task should appear in the plan for ``day``.
 
         - A task pinned to a ``due_date`` is due only on that exact date.
+        - A task with an explicit ``days_of_week`` set is due on those weekdays.
         - Otherwise DAILY and ONCE tasks are always due (a one-off is scheduled
           for whatever day the owner is planning).
-        - WEEKLY tasks are due only when ``day`` falls on ``day_of_week``
+        - A WEEKLY task with no day set falls back to its legacy ``day_of_week``
           (Monday if none was set).
         """
         if self.due_date is not None:
             return day == self.due_date
+        if self.days_of_week:
+            return day.weekday() in self.days_of_week
         if self.recurrence in (Recurrence.DAILY, Recurrence.ONCE):
             return True
         target = self.day_of_week if self.day_of_week is not None else 0

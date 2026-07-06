@@ -1,0 +1,8 @@
+# PawPal+ theme — a warm, friendly palette instead of the default gray.
+[theme]
+base = "light"
+primaryColor = "#ff7a59"
+backgroundColor = "#fffdfb"
+secondaryBackgroundColor = "#fff1e9"
+textColor = "#3a2e2a"
+font = "sans serif"

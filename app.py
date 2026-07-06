@@ -6,16 +6,64 @@ from pawpal_system import Owner, Pet, Priority, Recurrence, Scheduler, Task
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
-st.title("🐾 PawPal+")
-st.caption("A pet care planning assistant. Add pets and tasks, then generate a prioritized daily plan.")
+# --- Styling ---------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+      .pawpal-hero {
+        background: linear-gradient(120deg, #ff7a59 0%, #ff9a76 45%, #ffc36b 100%);
+        padding: 1.6rem 1.8rem; border-radius: 18px; color: #fff;
+        box-shadow: 0 8px 24px rgba(255, 122, 89, 0.28); margin-bottom: 1.2rem;
+      }
+      .pawpal-hero h1 { margin: 0; font-size: 2.1rem; }
+      .pawpal-hero p  { margin: 0.35rem 0 0; font-size: 1.02rem; opacity: 0.95; }
+      /* Rounder, bolder buttons */
+      div.stButton > button, div.stFormSubmitButton > button {
+        border-radius: 10px; font-weight: 600; border: none;
+      }
+      /* Accent bar on section headers */
+      h3 { border-left: 4px solid #ff7a59; padding-left: 0.5rem; }
+    </style>
+    <div class="pawpal-hero">
+      <h1>🐾 PawPal+</h1>
+      <p>Plan your pets' day — add tasks once, and let PawPal+ sort, flag clashes, and build a smart schedule.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 PRIORITY_MAP = {"low": Priority.LOW, "medium": Priority.MEDIUM, "high": Priority.HIGH}
-RECURRENCE_MAP = {
-    "once": Recurrence.ONCE,
-    "daily": Recurrence.DAILY,
-    "weekly": Recurrence.WEEKLY,
-}
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+WEEKDAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def parse_times(raw: str) -> tuple[list[time], list[str]]:
+    """Parse a comma-separated 'HH:MM, HH:MM' string into times.
+
+    Returns (valid_times, invalid_tokens). An empty string yields ([], []).
+    """
+    times: list[time] = []
+    invalid: list[str] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            times.append(time.fromisoformat(token))
+        except ValueError:
+            invalid.append(token)
+    return times, invalid
+
+
+def describe_schedule(t: Task) -> str:
+    """Short human description of when a task runs, for the tasks table."""
+    if t.recurrence == Recurrence.ONCE:
+        return "once"
+    if t.days_of_week:
+        return ", ".join(WEEKDAY_ABBR[d] for d in sorted(t.days_of_week))
+    if t.recurrence == Recurrence.WEEKLY and t.day_of_week is not None:
+        return WEEKDAY_ABBR[t.day_of_week]
+    return "every day"
 
 # --- Application memory ----------------------------------------------------
 # Streamlit reruns this whole script on every interaction, so we keep ONE
@@ -79,38 +127,62 @@ if owner.pets:
     with st.form("add_task", clear_on_submit=True):
         row1 = st.columns(3)
         with row1[0]:
-            task_title = st.text_input("Task title", value="Morning walk")
+            task_title = st.text_input("Task title", value="Feeding")
         with row1[1]:
-            duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=20)
+            duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=15)
         with row1[2]:
             priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
-        row2 = st.columns(3)
-        with row2[0]:
-            recurrence = st.selectbox("Recurrence", ["daily", "once", "weekly"], index=0)
-        with row2[1]:
-            weekday = st.selectbox("Weekly day", WEEKDAYS, index=0,
-                                   help="Only used when recurrence is 'weekly'.")
-        with row2[2]:
-            use_pref = st.checkbox("Set preferred time")
-            pref_time = st.time_input("Preferred time", value=time(8, 0)) if use_pref else None
+        repeats = st.radio(
+            "Repeats",
+            ["Every day", "Certain days", "Just once"],
+            horizontal=True,
+        )
+        chosen_days = st.multiselect(
+            "Which days? (only used for 'Certain days')",
+            options=list(range(7)),
+            format_func=lambda i: WEEKDAYS[i],
+            default=[0, 1, 2, 3, 4],
+        )
+        times_raw = st.text_input(
+            "Time(s) of day — comma separated, optional",
+            value="09:00, 17:00",
+            help="e.g. '09:00, 17:00' adds the task at each time. Leave blank for no set time.",
+        )
 
         if st.form_submit_button("Add task"):
-            if task_title.strip():
-                owner.add_task(
-                    selected_pet,
-                    Task(
-                        title=task_title.strip(),
-                        duration_minutes=int(duration),
-                        priority=PRIORITY_MAP[priority],
-                        recurrence=RECURRENCE_MAP[recurrence],
-                        day_of_week=WEEKDAYS.index(weekday),
-                        preferred_time=pref_time,
-                    ),
-                )
-                st.success(f"Added '{task_title.strip()}' for {selected_pet.name}.")
-            else:
+            times, invalid = parse_times(times_raw)
+            if not task_title.strip():
                 st.warning("Give the task a title first.")
+            elif invalid:
+                st.warning(f"Couldn't read these time(s): {', '.join(invalid)}. Use HH:MM (e.g. 09:00).")
+            elif repeats == "Certain days" and not chosen_days:
+                st.warning("Pick at least one day for 'Certain days'.")
+            else:
+                if repeats == "Every day":
+                    recurrence, days = Recurrence.DAILY, None
+                elif repeats == "Certain days":
+                    recurrence, days = Recurrence.WEEKLY, frozenset(chosen_days)
+                else:
+                    recurrence, days = Recurrence.ONCE, None
+
+                slots = times or [None]  # no time given -> one untimed task
+                for slot in slots:
+                    owner.add_task(
+                        selected_pet,
+                        Task(
+                            title=task_title.strip(),
+                            duration_minutes=int(duration),
+                            priority=PRIORITY_MAP[priority],
+                            recurrence=recurrence,
+                            days_of_week=days,
+                            preferred_time=slot,
+                        ),
+                    )
+                st.success(
+                    f"Added '{task_title.strip()}' for {selected_pet.name} "
+                    f"— {len(slots)} time(s) per day."
+                )
 
 # --- Current tasks ---------------------------------------------------------
 # A budget-less Scheduler is fine here: sorting/filtering/conflict checks don't
@@ -143,8 +215,8 @@ if all_tasks:
                 "task": t.title,
                 "min": t.duration_minutes,
                 "priority": t.priority.name.lower(),
-                "recurrence": t.recurrence.value,
-                "preferred": t.preferred_time.strftime("%H:%M") if t.preferred_time else "—",
+                "when": describe_schedule(t),
+                "time": t.preferred_time.strftime("%H:%M") if t.preferred_time else "—",
                 "done": "✓" if t.completed else "",
             }
             for t in display.sort_by_time(shown)

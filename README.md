@@ -20,7 +20,8 @@ Your job is to design the system first (UML), then implement the logic in Python
 - **Sorting** — order tasks by priority for planning, or chronologically by preferred time for a timeline view (`Scheduler.sort_tasks`, `Scheduler.sort_by_time`).
 - **Filtering** — narrow tasks by pet or by completion status (`Scheduler.filter_by_pet`, `Scheduler.filter_by_status`).
 - **Conflict warnings** — a lightweight check flags tasks that want the exact same time and returns a friendly warning instead of crashing (`Scheduler.find_time_conflicts`).
-- **Recurring tasks** — completing a daily or weekly task automatically regenerates its next occurrence (`today + 1 day` / `+ 7 days`); one-off tasks don't repeat (`Task.next_occurrence`, `Pet.complete_task`).
+- **Flexible recurrence** — a task can run every day, on a chosen set of weekdays (Mon/Wed/Fri), or just once; add it at several times of day in one step (e.g. feeding at 09:00 and 17:00) and each time becomes its own trackable task (`Task.days_of_week`, `Recurrence`).
+- **Recurring tasks** — completing a recurring task automatically regenerates its next occurrence: daily → next day, specific-days → the next selected weekday, weekly → +7 days; one-off tasks don't repeat (`Task.next_occurrence`, `Pet.complete_task`).
 - **Explainable plans** — the app describes *why* the plan looks the way it does, including which tasks were skipped and why (`Scheduler.explain_plan`).
 - **Streamlit UI + CLI** — the same logic layer (`pawpal_system.py`) powers both an interactive web app (`app.py`) and a terminal demo (`main.py`).
 
@@ -139,7 +140,8 @@ tests/test_pawpal.py ..................................                  [100%]
 | Filter by pet | `Scheduler.filter_by_pet`, `Owner.tasks_for_pet` | Returns the tasks belonging to a named pet. |
 | Due / budget filtering | `Scheduler.generate_plan`, `Task.is_due_on` | Tasks not due on the target day (and completed tasks) are filtered out; tasks that don't fit the time budget go to `DailyPlan.skipped`. |
 | Conflict detection | `Scheduler.find_time_conflicts` | Lightweight check that returns warning strings when tasks share the exact same `preferred_time` (doesn't crash). `Scheduler.detect_conflicts` additionally flags duration overlaps in a built plan. |
-| Recurring tasks | `Task.next_occurrence`, `Pet.complete_task`, `Recurrence` | Completing a `DAILY`/`WEEKLY` task auto-creates its next occurrence (`today + 1 day` / `+ 7 days` via `timedelta`), pinned to that date; `ONCE` tasks don't repeat. |
+| Recurring tasks | `Task.next_occurrence`, `Pet.complete_task`, `Recurrence` | Completing a recurring task auto-creates its next occurrence via `timedelta` (daily → +1 day, specific-days → next selected weekday, weekly → +7 days), pinned to that date; `ONCE` tasks don't repeat. |
+| Days of week | `Task.days_of_week`, `Task.is_due_on` | A task can run on a chosen set of weekdays; `is_due_on` returns True only for those days. The UI can add a task at multiple times of day in one step. |
 
 ## 📸 Demo Walkthrough
 

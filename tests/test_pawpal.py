@@ -113,6 +113,21 @@ def test_weekly_respects_explicit_day_of_week():
     assert not weekly.is_due_on(MONDAY)
 
 
+def test_days_of_week_set_controls_due_days():
+    # Runs Monday and Wednesday only.
+    task = Task("Feeding", recurrence=Recurrence.WEEKLY, days_of_week=frozenset({0, 2}))
+    assert task.is_due_on(MONDAY)
+    assert task.is_due_on(WEDNESDAY)
+    assert not task.is_due_on(date(2026, 7, 7))  # Tuesday
+
+
+def test_next_occurrence_advances_to_next_selected_weekday():
+    # Completing Monday's instance of a Mon/Wed task should schedule Wednesday.
+    task = Task("Feeding", recurrence=Recurrence.WEEKLY, days_of_week=frozenset({0, 2}))
+    nxt = task.next_occurrence(MONDAY)
+    assert nxt is not None and nxt.due_date == WEDNESDAY
+
+
 # --- Sorting ---------------------------------------------------------------
 
 
